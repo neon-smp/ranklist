@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Neon Rank Store</title>
+
+<!-- DARK RED N FAVICON -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E">
+
+<!-- Fallback for browsers -->
+<link rel="shortcut icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E">
+
+<!-- rest of your existing CSS -->
+  <style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700;800&display=swap');
+
+  :root{
+    --bg:#0d0505;
+    --bg2:#150707;
+    --red:#ff2d3d;
+    --red-deep:#c81e2c;
+    --pink:#ff8a93;
+    --gold:#f5c451;
+    --text:#f4e9e9;
+    --muted:#b98a8d;
+    --card:#170909;
+    --card-border:#3a1418;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    overflow-x:hidden;
+    position:relative;
+  }
+  body::before{
+    content:"";
+    position:fixed; inset:0;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255,45,61,0.06), transparent 40%),
+      radial-gradient(circle at 80% 60%, rgba(255,45,61,0.05), transparent 40%);
+    pointer-events:none;
+    z-index:0;
+  }
+  .pixel{ font-family:'Press Start 2P', monospace; }
+
+  /* ---------- WAVING BACKGROUND LOGO ---------- */
+  .bg-wave-logo{
+    position:fixed;
+    top:50%; left:50%;
+    width:min(70vw, 640px);
+    height:auto;
+    opacity:0.05;
+    pointer-events:none;
+    z-index:0;
+    transform-origin:center center;
+    animation:waveLogo 6s ease-in-out infinite;
+    filter:drop-shadow(0 0 40px rgba(255,45,61,0.3));
+  }
+  @keyframes waveLogo{
+    0%   { transform:translate(-50%,-50%) rotate(-3deg) skewX(-2deg) scale(1); }
+    25%  { transform:translate(-50%,-50%) rotate(2deg) skewX(1deg) scale(1.02); }
+    50%  { transform:translate(-50%,-50%) rotate(-2deg) skewX(-1deg) scale(1); }
+    75%  { transform:translate(-50%,-50%) rotate(3deg) skewX(2deg) scale(1.02); }
+    100% { transform:translate(-50%,-50%) rotate(-3deg) skewX(-2deg) scale(1); }
+  }
+
+  /* ---------- MC SERVER STATUS WIDGET ---------- */
+  #mc-status{
+    position:fixed;
+    top:14px;
+    left:14px;
+    z-index:999;
+    background:rgba(15,6,6,0.9);
+    border:1px solid var(--card-border);
+    border-radius:10px;
+    padding:10px 14px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 0 20px rgba(255,45,61,0.15);
+    width:max-content;
+    min-width:225px;
+    max-width:min(92vw, 340px);
+    cursor:default;
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  #mc-status:hover{
+    transform:translateY(-2px);
+    border-color:var(--red);
+    box-shadow:0 0 26px rgba(255,45,61,0.35);
+  }
+  #mc-status .icon{
+    width:28px; height:28px; border-radius:6px; flex-shrink:0;
+    background:#1a0a0a; border:1px solid var(--card-border);
+    image-rendering:pixelated; object-fit:cover; display:none;
+  }
+  #mc-status .icon.show{ display:block; }
+  #mc-status .icon-fallback{
+    width:28px; height:28px; border-radius:6px; flex-shrink:0;
+    overflow:hidden;
+    box-shadow:0 0 10px rgba(255,45,61,.4);
+  }
+  #mc-status .icon-fallback img{ width:100%; height:100%; object-fit:cover; display:block; }
+  #mc-status .icon-fallback.hide{ display:none; }
+  #mc-status .dot{
+    width:10px; height:10px; border-radius:50%;
+    background:#555; flex-shrink:0;
+    box-shadow:0 0 6px #555;
+    transition:all .3s;
+  }
+  #mc-status.online .dot{ background:#3ddc6b; box-shadow:0 0 8px #3ddc6b; animation:dotpulse 2s infinite; }
+  #mc-status.offline .dot{ background:#ff2d3d; box-shadow:0 0 8px #ff2d3d; }
+  @keyframes dotpulse{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
+  #mc-status .info{ line-height:1.35; min-width:0; font-family:'Inter',sans-serif; }
+  #mc-status .ip{ font-size:13px; font-weight:700; color:var(--text); letter-spacing:.2px; white-space:normal; word-break:break-word; overflow:visible; font-family:'Inter',sans-serif; }
+  #mc-status .meta{ font-size:12px; color:var(--muted); white-space:normal; word-break:break-word; overflow:visible; font-family:'Inter',sans-serif; }
+  #mc-status .meta strong{ color:var(--pink); font-weight:700; }
+  #mc-status.online .meta strong{ color:#3ddc6b; }
+  #mc-status.offline .meta strong{ color:var(--red); }
+  #mc-status .updated{ font-size:10.5px; color:#8a6567; margin-top:3px; white-space:normal; font-family:'Inter',sans-serif; }
+
+  /* ---------- NAV ---------- */
+  nav{
+    position:relative; z-index:2;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:22px 60px;
+    border-bottom:1px solid var(--card-border);
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .logo{
+    width:38px; height:38px; border-radius:50%;
+    overflow:hidden;
+    box-shadow:0 0 16px rgba(255,45,61,.5);
+    flex-shrink:0;
+  }
+  .brand .logo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .brand span{ font-weight:800; letter-spacing:2px; font-size:15px; }
+  .ticket-btn{
+    border:1px solid var(--red); color:var(--red);
+    padding:10px 22px; border-radius:6px;
+    font-weight:700; font-size:13px; letter-spacing:1px;
+    background:transparent; cursor:pointer;
+    transition:.2s;
+  }
+  .ticket-btn:hover{ background:var(--red); color:#0d0505; }
+
+  /* ---------- HERO ---------- */
+  .hero{
+    position:relative; z-index:2;
+    text-align:center;
+    padding:90px 20px 60px;
+  }
+  .eyebrow{
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(255,45,61,0.08);
+    border:1px solid rgba(255,45,61,0.35);
+    padding:8px 18px; border-radius:30px;
+    font-size:12px; letter-spacing:2px; color:#ffab8a;
+    margin-bottom:36px;
+  }
+  .eyebrow .pulse{
+    width:7px; height:7px; border-radius:50%; background:var(--red);
+    box-shadow:0 0 8px var(--red);
+    animation:pulse 1.6s infinite;
+  }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.3;} }
+
+  .hero h1{
+    font-family:'Press Start 2P', monospace;
+    font-size:64px; line-height:1.25;
+    background:linear-gradient(180deg,#ffdada,var(--red) 70%);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    text-shadow:0 0 40px rgba(255,45,61,.35);
+  }
+  .hero p.sub{
+    max-width:640px; margin:34px auto 0;
+    color:var(--muted); font-size:16px; line-height:1.6;
+  }
+  .hero-actions{
+    display:flex; justify-content:center; gap:18px; margin-top:44px; flex-wrap:wrap;
+  }
+  .btn-primary, .btn-secondary{
+    padding:16px 30px; border-radius:8px; font-weight:700; font-size:15px; cursor:pointer; border:none;
+  }
+  .btn-primary{
+    background:linear-gradient(180deg,#ff4a55,var(--red-deep));
+    color:#fff; box-shadow:0 8px 24px rgba(255,45,61,.35);
+  }
+  .btn-secondary{
+    background:transparent; border:1px solid var(--card-border); color:var(--text);
+  }
+
+  .strip{
+    position:relative; z-index:2;
+    display:flex; flex-wrap:wrap; justify-content:center; gap:40px;
+    padding:26px 20px; margin-top:60px;
+    border-top:1px solid var(--card-border); border-bottom:1px solid var(--card-border);
+    font-size:12.5px; letter-spacing:.5px; color:#e0a5a8;
+  }
+  .strip span{ display:flex; align-items:center; gap:8px; }
+  .strip span::before{ content:"◆"; color:var(--red); font-size:10px; }
+
+  /* ---------- CONNECT / IP SECTION ---------- */
+  .connect{
+    position:relative; z-index:2;
+    text-align:center; padding:80px 20px 40px;
+  }
+  .connect .label{ color:var(--red); letter-spacing:3px; font-size:12px; font-weight:700; }
+  .connect h2{ font-size:34px; margin:14px 0 10px; }
+  .connect p{ color:var(--muted); max-width:520px; margin:0 auto 40px; }
+  .ip-grid{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:18px; max-width:1100px; margin:0 auto;
+  }
+  .ip-card{
+    background:var(--card); border:1px solid var(--card-border); border-radius:10px;
+    padding:20px; text-align:left; position:relative; overflow:hidden;
+  }
+  .ip-row{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
+  .ip-text{ font-family:monospace; font-size:15px; font-weight:700; color:var(--text); word-break:break-all; }
+  .copy-btn{
+    background:rgba(255,45,61,0.1); border:1px solid var(--red);
+    color:var(--red); font-size:11px; font-weight:700;
+    padding:6px 12px; border-radius:6px; cursor:pointer; white-space:nowrap;
+  }
+  .copy-btn:hover{ background:var(--red); color:#0d0505; }
+  .copy-btn.copied{ background:#3ddc6b; border-color:#3ddc6b; color:#0d0505; }
+
+  /* ---------- RANK LIST ---------- */
+  .ranklist{ position:relative; z-index:2; padding:90px 20px 40px; text-align:center; }
+  .ranklist .label{ color:var(--red); letter-spacing:3px; font-size:12px; font-weight:700; }
+  .ranklist h2{ font-size:34px; margin:14px 0 10px; }
+  .ranklist > p{ color:var(--muted); margin-bottom:60px; }
+
+  .cards{
+    display:grid; grid-template-columns:repeat(3,1fr); gap:28px;
+    max-width:1200px; margin:0 auto;
+  }
+  .rcard{
+    background:var(--card); border:1px solid var(--card-border); border-radius:12px;
+    padding:30px; text-align:left; position:relative; overflow:hidden;
+  }
+  .rcard.top{ border-color:var(--gold); }
+  .rcard.top::after{
+    content:"TOP TIER";
+    position:absolute; top:18px; right:-38px;
+    background:var(--gold); color:#2a1a00; font-size:10px; font-weight:800;
+    padding:5px 40px; transform:rotate(45deg); letter-spacing:1px;
+  }
+  .rcard h3{ font-family:'Press Start 2P',monospace; font-size:16px; margin-bottom:6px; }
+  .rcard.destroyer h3{ color:var(--red); }
+  .rcard.ominus h3{ color:#ff5c66; }
+  .rcard.realism h3{ color:var(--gold); }
+  .rcard .tier-desc{ color:var(--muted); font-size:13px; margin-bottom:22px; }
+  .perk{
+    display:flex; align-items:center; gap:10px;
+    background:rgba(255,255,255,0.02); border:1px solid var(--card-border);
+    padding:12px 14px; border-radius:8px; margin-bottom:10px; font-size:13.5px;
+  }
+  .perk .ic{ font-size:13px; }
+  .boost-block{ margin-top:22px; padding-top:18px; border-top:1px dashed var(--card-border); }
+  .boost-title{ font-family:'Press Start 2P',monospace; font-size:15px; margin-bottom:2px; }
+  .boost-sub{ color:var(--muted); font-size:12px; margin-bottom:16px; }
+  .price-row{ display:flex; justify-content:space-between; font-size:13.5px; padding:6px 0; color:var(--muted); }
+  .price-row strong{ color:var(--text); }
+  .price-row .plus{ color:var(--red); font-size:11px; margin-left:4px; }
+  .validity{ margin-top:14px; font-size:13px; color:var(--muted); }
+  .warn{
+    margin-top:14px; background:rgba(255,45,61,0.08); border:1px solid rgba(255,45,61,.3);
+    color:#ffb0b3; font-size:12px; padding:10px 14px; border-radius:6px;
+  }
+
+  /* ---------- INVITE TRACK ---------- */
+  .invite{ position:relative; z-index:2; text-align:center; padding:90px 20px 50px; }
+  .invite h2{ font-size:32px; margin:14px 0 10px; }
+  .invite p{ color:var(--muted); margin-bottom:50px; }
+  .ibars{ max-width:800px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+  .ibar{
+    display:flex; align-items:center; gap:24px;
+    background:var(--card); border:1px solid var(--card-border); border-radius:10px;
+    padding:22px 30px;
+  }
+  .ibar .num{ font-family:'Press Start 2P',monospace; color:var(--red); font-size:18px; width:40px; }
+  .ibar .track{ flex:1; height:6px; background:#2a1013; border-radius:4px; overflow:hidden; }
+  .ibar .fill{ height:100%; background:linear-gradient(90deg,var(--red-deep),var(--red)); }
+  .ibar .rank{ font-weight:700; width:100px; text-align:right; }
+
+  /* ---------- PAYMENT ---------- */
+  .checkout{ position:relative; z-index:2; text-align:center; padding:90px 20px 40px; }
+  .checkout h2{ font-size:32px; margin:14px 0 10px; }
+  .checkout > p{ color:var(--muted); margin-bottom:50px; }
+  .pay-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:20px; max-width:1100px; margin:0 auto;
+  }
+  .pay-card{
+    background:var(--card); border:1px solid var(--card-border); border-radius:10px;
+    padding:22px; text-align:left;
+  }
+  .pay-card .code{ color:var(--muted); font-size:12px; letter-spacing:1px; }
+  .pay-card .country{ font-weight:700; font-size:15px; margin:6px 0 16px; }
+  .pay-card .methods{ display:flex; flex-wrap:wrap; gap:8px; }
+  .pay-card .methods span{
+    background:rgba(255,255,255,0.03); border:1px solid var(--card-border);
+    font-size:11.5px; padding:6px 10px; border-radius:6px; color:var(--text);
+  }
+  .globe{ width:22px; height:22px; border-radius:5px; overflow:hidden; margin-bottom:6px; }
+  .globe img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .noref{ margin-top:50px; color:#ffab8a; font-size:13px; }
+
+  /* ---------- STEPS ---------- */
+  .steps{ position:relative; z-index:2; padding:90px 20px 40px; max-width:900px; margin:0 auto; }
+  .steps h2{ text-align:center; font-size:32px; margin-bottom:44px; }
+  .step{
+    display:flex; align-items:center; gap:20px;
+    background:var(--card); border:1px solid var(--card-border); border-radius:10px;
+    padding:22px 26px; margin-bottom:16px;
+  }
+  .step .n{
+    background:var(--red); color:#1a0505; font-weight:800;
+    width:34px; height:34px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;
+  }
+  .step p{ font-weight:600; font-size:15px; }
+
+  /* ---------- FOOTER CTA ---------- */
+  .cta{ position:relative; z-index:2; text-align:center; padding:90px 20px 50px; }
+  .cta h2{ font-family:'Press Start 2P',monospace; font-size:26px; margin-bottom:14px; }
+  .cta p{ color:var(--muted); margin-bottom:30px; }
+  .cta-btn{
+    display:inline-block; background:linear-gradient(180deg,#ff4a55,var(--red-deep));
+    color:#fff; padding:16px 34px; border-radius:8px; font-weight:700; font-size:15px;
+    box-shadow:0 8px 30px rgba(255,45,61,.4); text-decoration:none;
+  }
+  .disclaimer{
+    max-width:900px; margin:50px auto 0;
+    background:rgba(255,45,61,0.06); border:1px solid rgba(255,45,61,.25);
+    color:#ffb0b3; font-size:13px; padding:16px 20px; border-radius:8px; text-align:center;
+  }
+  footer{
+    position:relative; z-index:2; text-align:center; padding:40px 20px 30px;
+    border-top:1px solid var(--card-border); color:var(--muted); font-size:12.5px;
+  }
+  footer .credit{ color:var(--red); margin-top:6px; }
+
+  @media (max-width:900px){
+    .cards{ grid-template-columns:1fr; }
+    .hero h1{ font-size:38px; }
+    nav{ padding:18px 24px; }
+    #mc-status{ position:static; margin:14px auto 0; width:fit-content; max-width:none; }
+    .ip-grid{ grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:520px){
+    .ip-grid{ grid-template-columns:1fr; }
+    #mc-status{ min-width:0; padding:8px 12px; }
+  }
+</style>
+</head>
+<body>
+
+  <img class="bg-wave-logo" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E" alt="" />
+
+  <div id="mc-status" class="pixel">
+    <img class="icon" alt="Server icon" />
+    <div class="icon-fallback hide"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E" alt="Neon Rank logo" /></div>
+    <div class="dot"></div>
+    <div class="info">
+      <div class="ip">play.neon-smp.fun</div>
+      <div class="meta">checking...</div>
+      <div class="updated">Last updated: --:--:--</div>
+    </div>
+  </div>
+
+  <nav>
+    <div class="brand">
+      <div class="logo"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E" alt="Neon Rank logo" /></div>
+      <span>NEON RANK</span>
+    </div>
+    <button class="ticket-btn" onclick="window.location.href='https://discordapp.com/channels/1425131784634503229/1543240641180598392'">OPEN TICKET</button>
+  </nav>
+
+  <section class="hero">
+    <div class="eyebrow"><span class="pulse"></span> SERVER STORE · RANKS RESTOCKED</div>
+    <h1 class="pixel">NEON<br>RANK STORE</h1>
+    <p class="sub">Boost the server, unlock coins, kits and rare keys. Three tiers of power — pick your rank and gear up before the next reset.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="document.getElementById('choose-your-rank').scrollIntoView({behavior:'smooth'})">⚡ View Ranks</button>
+      <button class="btn-secondary" onclick="document.getElementById('how-to-purchase').scrollIntoView({behavior:'smooth'})">How to Buy</button>
+    </div>
+  </section>
+
+  <div class="strip">
+    <span>NOT OBTAINABLE THROUGH INVITES</span>
+    <span>30 DAY VALIDITY ON ALL RANKS</span>
+    <span>NO REFUND AFTER PAYMENT</span>
+    <span>REGIONAL PRICING AVAILABLE</span>
+  </div>
+
+  <section class="ranklist" id="choose-your-rank">
+    <div class="label">◆ RANK LIST</div>
+    <h2>Choose your rank</h2>
+    <p>Every rank stacks perks from the tier below it. Higher tier, more coins, more keys.</p>
+
+    <div class="cards">
+      <div class="rcard destroyer">
+        <h3 class="pixel">[DESTROYER]</h3>
+        <div class="tier-desc">Entry-tier firepower</div>
+        <div class="perk"><span class="ic">◆</span> 800 coins</div>
+        <div class="perk"><span class="ic">◆</span> 800K in-game money</div>
+        <div class="perk"><span class="ic">◆</span> Destroyer kit access</div>
+        <div class="perk"><span class="ic">🔑</span> 4× Warden key</div>
+        <div class="perk"><span class="ic">🔑</span> 4× Knight key</div>
+        <div class="boost-block">
+          <div class="boost-title pixel">2× BOOST</div>
+          <div class="boost-sub">Discord server boosts</div>
+          <div class="price-row"><span>India</span><strong>₹60</strong></div>
+          <div class="price-row"><span>Bangladesh</span><strong>৳99</strong></div>
+          <div class="price-row"><span>Pakistan</span><strong>₨249 <span class="plus">+6d</span></strong></div>
+          <div class="price-row"><span>Nepal</span><strong>₨129 <span class="plus">+6d</span></strong></div>
+          <div class="validity">Validity <strong>30 days</strong></div>
+          <div class="warn">⚠ Not obtainable through invites</div>
+        </div>
+      </div>
+
+      <div class="rcard ominus">
+        <h3 class="pixel">[OMINUS]</h3>
+        <div class="tier-desc">Mid-tier dominance</div>
+        <div class="perk"><span class="ic">◆</span> 1,400 coins</div>
+        <div class="perk"><span class="ic">◆</span> 1.2M in-game money</div>
+        <div class="perk"><span class="ic">◆</span> Ominus + Destroyer kit access</div>
+        <div class="perk"><span class="ic">🔑</span> 8× Warden key</div>
+        <div class="perk"><span class="ic">🔑</span> 8× Knight key</div>
+        <div class="boost-block">
+          <div class="boost-title pixel">4× BOOST</div>
+          <div class="boost-sub">Discord server boosts</div>
+          <div class="price-row"><span>India</span><strong>₹160</strong></div>
+          <div class="price-row"><span>Bangladesh</span><strong>৳259</strong></div>
+          <div class="price-row"><span>Pakistan</span><strong>₨599 <span class="plus">+6d</span></strong></div>
+          <div class="price-row"><span>Nepal</span><strong>₨339 <span class="plus">+6d</span></strong></div>
+          <div class="validity">Validity <strong>30 days</strong></div>
+          <div class="warn">⚠ Not obtainable through invites</div>
+        </div>
+      </div>
+
+      <div class="rcard realism top">
+        <h3 class="pixel">[REALISM]</h3>
+        <div class="tier-desc">Full server supremacy</div>
+        <div class="perk"><span class="ic">◆</span> 2,000 coins</div>
+        <div class="perk"><span class="ic">◆</span> 2M in-game money</div>
+        <div class="perk"><span class="ic">◆</span> Ominus + Destroyer + Realism kit access</div>
+        <div class="perk"><span class="ic">🔑</span> 12× Warden key</div>
+        <div class="perk"><span class="ic">🔑</span> 12× Knight key</div>
+        <div class="boost-block">
+          <div class="boost-title pixel">8× BOOST</div>
+          <div class="boost-sub">Discord server boosts</div>
+          <div class="price-row"><span>India</span><strong>₹280</strong></div>
+          <div class="price-row"><span>Bangladesh</span><strong>৳449</strong></div>
+          <div class="price-row"><span>Pakistan</span><strong>₨1,099 <span class="plus">+6d</span></strong></div>
+          <div class="price-row"><span>Nepal</span><strong>₨599 <span class="plus">+6d</span></strong></div>
+          <div class="validity">Validity <strong>30 days</strong></div>
+          <div class="warn">⚠ Not obtainable through invites</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="invite">
+    <div class="label" style="color:var(--red);letter-spacing:3px;font-size:12px;font-weight:700;">◆ FREE TRACK</div>
+    <h2>Invite ranks</h2>
+    <p>No boosts, no payment — just invite members to climb the ladder.</p>
+    <div class="ibars">
+      <div class="ibar">
+        <div class="num">05</div>
+        <div class="track"><div class="fill" style="width:35%"></div></div>
+        <div class="rank">VIP+</div>
+      </div>
+      <div class="ibar">
+        <div class="num">10</div>
+        <div class="track"><div class="fill" style="width:65%"></div></div>
+        <div class="rank">MVP</div>
+      </div>
+      <div class="ibar">
+        <div class="num">15</div>
+        <div class="track"><div class="fill" style="width:100%"></div></div>
+        <div class="rank">Supporter</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="checkout">
+    <div class="label" style="color:var(--red);letter-spacing:3px;font-size:12px;font-weight:700;">◆ CHECKOUT</div>
+    <h2>Payment methods</h2>
+    <p>Pick the method available in your region.</p>
+    <div class="pay-grid">
+      <div class="pay-card">
+        <div class="code">IN</div>
+        <div class="country">INDIA</div>
+        <div class="methods"><span>UPI</span><span>PhonePe</span><span>GPay</span><span>Paytm</span><span>FamPay</span></div>
+      </div>
+      <div class="pay-card">
+        <div class="code">BD</div>
+        <div class="country">BANGLADESH</div>
+        <div class="methods"><span>bKash</span><span>Nagad</span><span>Rocket</span></div>
+      </div>
+      <div class="pay-card">
+        <div class="code">PK</div>
+        <div class="country">PAKISTAN</div>
+        <div class="methods"><span>SadaPay only</span></div>
+      </div>
+      <div class="pay-card">
+        <div class="code">NP</div>
+        <div class="country">NEPAL</div>
+        <div class="methods"><span>eSewa only</span></div>
+      </div>
+      <div class="pay-card">
+        <div class="globe"><img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23100a0b'/%3E%3Cpath d='M24 76V24h15l22 29V24h15v52H61L39 47v29H24z' fill='%238b111b'/%3E%3C/svg%3E" alt="Neon Rank logo" /></div>
+        <div class="country">INTERNATIONAL</div>
+        <div class="methods"><span>PayPal</span></div>
+      </div>
+    </div>
+    <div class="noref">⚠ No refund after payment is made</div>
+  </section>
+
+  <section class="steps" id="how-to-purchase">
+    <h2>How to purchase</h2>
+    <div class="step"><div class="n">1</div><p>Open a ticket in Discord channel</p></div>
+    <div class="step"><div class="n">2</div><p>Transactions must be done in presence of Staff Team</p></div>
+    <div class="step"><div class="n">3</div><p>Attach proof (screenshot of your payment) in ticket</p></div>
+    <div class="step"><div class="n">4</div><p>Wait for Admin verification</p></div>
+  </section>
+
+  <section class="cta">
+    <h2 class="pixel">↖ Ready to gear up?</h2>
+    <p>Open a ticket and claim your rank before the next restock.</p>
+    <a href="https://discordapp.com/channels/1425131784634503229/1543240641180598392" class="cta-btn">Purchase Here →</a>
+    <div class="disclaimer">⚠ Must perform transaction with trusted members/Staff Team. No refund after payments.</div>
+  </section>
+
+  <section class="connect">
+    <div class="label">◆ CONNECT</div>
+    <h2>Server IPs</h2>
+    <p>Copy an address below and add it to your Minecraft server list.</p>
+    <div class="ip-grid">
+      <div class="ip-card">
+        <div class="ip-row">
+          <span class="ip-text">play.neon-smp.fun</span>
+          <button class="copy-btn" onclick="copyIp(this,'play.neon-smp.fun')">Copy</button>
+        </div>
+      </div>
+      <div class="ip-card">
+        <div class="ip-row">
+          <span class="ip-text">neon-smp.fun</span>
+          <button class="copy-btn" onclick="copyIp(this,'neon-smp.fun')">Copy</button>
+        </div>
+      </div>
+      <div class="ip-card">
+        <div class="ip-row">
+          <span class="ip-text">neonsmp.in</span>
+          <button class="copy-btn" onclick="copyIp(this,'neonsmp.in')">Copy</button>
+        </div>
+      </div>
+      <div class="ip-card">
+        <div class="ip-row">
+          <span class="ip-text">play.neonsmp.in</span>
+          <button class="copy-btn" onclick="copyIp(this,'play.neonsmp.in')">Copy</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Neon Rank Store · Prices shown are regional and may vary · No refunds after payment
+    <div class="credit">Page crafted by — Discord: rabbit_18w</div>
+  </footer>
+
+<script>
+  function copyIp(btn, ip){
+    navigator.clipboard.writeText(ip).then(()=>{
+      const old = btn.textContent;
+      btn.textContent = "Copied!";
+      btn.classList.add("copied");
+      setTimeout(()=>{ btn.textContent = old; btn.classList.remove("copied"); }, 1500);
+    });
+  }
+
+  /* =========================================================
+     MINECRAFT SERVER STATUS WIDGET CONFIG
+     Edit SERVER_IP to point this at your own server.
+     ========================================================= */
+  const SERVER_IP = "play.neon-smp.fun";
+  const MC_STATUS_API_BASE = "https://api.mcsrvstat.us/3/"; // public Minecraft server status API
+  const MC_REFRESH_MS = 30000; // 30 seconds
+  const MC_FETCH_TIMEOUT_MS = 8000; // give the API 8s before treating it as unreachable
+
+  function formatTime(date){
+    return date.toLocaleTimeString([], { hour12:false });
+  }
+
+  function setUpdatedTimestamp(box){
+    const updatedEl = box.querySelector('.updated');
+    updatedEl.textContent = `Last updated: ${formatTime(new Date())}`;
+  }
+
+  async function fetchServerStatus(ip){
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), MC_FETCH_TIMEOUT_MS);
+
+    try{
+      const res = await fetch(MC_STATUS_API_BASE + encodeURIComponent(ip), {
+        signal: controller.signal,
+        cache: 'no-store'
+      });
+
+      if(!res.ok){
+        // API reachable but returned an error status (e.g. malformed/invalid IP)
+        return { ok:false, reason:'api-error' };
+      }
+
+      const data = await res.json();
+
+      // mcsrvstat always returns an "online" boolean — trust it directly,
+      // never fabricate player counts if the field is missing.
+      if(typeof data.online !== 'boolean'){
+        return { ok:false, reason:'invalid-response' };
+      }
+
+      return { ok:true, data };
+
+    } catch(err){
+      if(err.name === 'AbortError'){
+        return { ok:false, reason:'timeout' };
+      }
+      // covers network failure, DNS failure, CORS, offline browser, etc.
+      return { ok:false, reason:'network-error' };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  function renderOffline(box, reason){
+    const ipEl = box.querySelector('.ip');
+    const meta = box.querySelector('.meta');
+    const iconEl = box.querySelector('.icon');
+    const fallbackEl = box.querySelector('.icon-fallback');
+
+    box.classList.add('offline');
+    box.classList.remove('online');
+    ipEl.textContent = SERVER_IP;
+
+    let label = 'OFFLINE';
+    if(reason === 'network-error') label = 'OFFLINE · Network error';
+    if(reason === 'timeout') label = 'OFFLINE · Request timed out';
+    if(reason === 'api-error') label = 'OFFLINE · API error';
+    if(reason === 'invalid-response') label = 'OFFLINE · Invalid response';
+
+    meta.innerHTML = `<strong>${label}</strong>`;
+    iconEl.classList.remove('show');
+    fallbackEl.classList.remove('hide');
+  }
+
+  function renderOnline(box, data){
+    const ipEl = box.querySelector('.ip');
+    const meta = box.querySelector('.meta');
+    const iconEl = box.querySelector('.icon');
+    const fallbackEl = box.querySelector('.icon-fallback');
+
+    box.classList.add('online');
+    box.classList.remove('offline');
+    ipEl.textContent = SERVER_IP;
+
+    const hasPlayerData = data.players
+      && typeof data.players.online === 'number'
+      && typeof data.players.max === 'number';
+
+    const playersText = hasPlayerData
+      ? `${data.players.online}/${data.players.max} Players`
+      : 'Player count unavailable';
+
+    meta.innerHTML = `<strong>ONLINE</strong> · ${playersText}`;
+
+    if(data.icon){
+      iconEl.src = data.icon;
+      iconEl.classList.add('show');
+      fallbackEl.classList.add('hide');
+    } else {
+      iconEl.classList.remove('show');
+      fallbackEl.classList.remove('hide');
+    }
+  }
+
+  async function checkServerStatus(){
+    const box = document.getElementById('mc-status');
+    const result = await fetchServerStatus(SERVER_IP);
+
+    if(result.ok && result.data.online){
+      renderOnline(box, result.data);
+    } else if(result.ok && !result.data.online){
+      renderOffline(box); // server confirmed offline by the API — not an error
+    } else {
+      renderOffline(box, result.reason);
+    }
+
+    setUpdatedTimestamp(box);
+  }
+
+  // First check happens immediately on page load, then every 30 seconds
+  checkServerStatus();
+  setInterval(checkServerStatus, MC_REFRESH_MS);
+</script>
+
+</body>
+</html>
