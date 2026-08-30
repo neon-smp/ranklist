@@ -54,6 +54,14 @@
     backdrop-filter:blur(6px);
     box-shadow:0 0 20px rgba(255,45,61,0.15);
     min-width:190px;
+    max-width:240px;
+    cursor:default;
+    transition:transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+  }
+  #mc-status:hover{
+    transform:translateY(-2px);
+    border-color:var(--red);
+    box-shadow:0 0 26px rgba(255,45,61,0.35);
   }
   #mc-status .icon{
     width:28px; height:28px; border-radius:6px; flex-shrink:0;
@@ -67,12 +75,15 @@
     box-shadow:0 0 6px #555;
     transition:all .3s;
   }
-  #mc-status.online .dot{ background:#3ddc6b; box-shadow:0 0 8px #3ddc6b; }
+  #mc-status.online .dot{ background:#3ddc6b; box-shadow:0 0 8px #3ddc6b; animation:dotpulse 2s infinite; }
   #mc-status.offline .dot{ background:#ff2d3d; box-shadow:0 0 8px #ff2d3d; }
-  #mc-status .info{ line-height:1.3; }
-  #mc-status .ip{ font-size:12px; font-weight:700; color:var(--text); letter-spacing:.3px; }
-  #mc-status .meta{ font-size:10.5px; color:var(--muted); }
+  @keyframes dotpulse{ 0%,100%{opacity:1;} 50%{opacity:.5;} }
+  #mc-status .info{ line-height:1.3; min-width:0; }
+  #mc-status .ip{ font-size:12px; font-weight:700; color:var(--text); letter-spacing:.3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #mc-status .meta{ font-size:10.5px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   #mc-status .meta strong{ color:var(--pink); }
+  #mc-status.online .meta strong{ color:#3ddc6b; }
+  #mc-status.offline .meta strong{ color:var(--red); }
 
   /* ---------- NAV ---------- */
   nav{
@@ -301,11 +312,12 @@
     .cards{ grid-template-columns:1fr; }
     .hero h1{ font-size:38px; }
     nav{ padding:18px 24px; }
-    #mc-status{ position:static; margin:14px auto 0; width:fit-content; }
+    #mc-status{ position:static; margin:14px auto 0; width:fit-content; max-width:none; }
     .ip-grid{ grid-template-columns:repeat(2,1fr); }
   }
   @media (max-width:520px){
     .ip-grid{ grid-template-columns:1fr; }
+    #mc-status{ min-width:0; padding:8px 12px; }
   }
 </style>
 </head>
@@ -532,16 +544,26 @@
     });
   }
 
-  const SERVER_IPS = [
-    'play.neon-smp.fun',
+  /* =========================================================
+     MINECRAFT SERVER STATUS WIDGET CONFIG
+     Change MC_SERVER_IP to your server's primary address.
+     Extra fallback addresses (checked if the primary one
+     doesn't respond) can be listed in MC_FALLBACK_IPS.
+     ========================================================= */
+  const MC_SERVER_IP = 'play.neon-smp.fun';
+  const MC_FALLBACK_IPS = [
     'neon-smp.fun',
     'neonsmp.in',
     'play.neonsmp.in'
   ];
+  const MC_STATUS_API = 'https://api.mcsrvstat.us/3/'; // public Minecraft server status API
+  const MC_REFRESH_MS = 30000; // 30 seconds
+
+  const SERVER_IPS = [MC_SERVER_IP, ...MC_FALLBACK_IPS];
 
   async function fetchStatus(ip){
     try{
-      const res = await fetch('https://api.mcsrvstat.us/3/' + ip);
+      const res = await fetch(MC_STATUS_API + encodeURIComponent(ip));
       if(!res.ok) return null;
       const data = await res.json();
       return { ip, data };
@@ -556,14 +578,22 @@
     const meta = box.querySelector('.meta');
     const iconEl = box.querySelector('.icon');
 
-    const results = await Promise.all(SERVER_IPS.map(fetchStatus));
+    let results;
+    try{
+      results = await Promise.all(SERVER_IPS.map(fetchStatus));
+    } catch(e){
+      results = [];
+    }
+
     const online = results.find(r => r && r.data && r.data.online);
 
     if(online){
       box.classList.add('online'); box.classList.remove('offline');
       ipEl.textContent = online.ip;
-      const players = online.data.players ? `${online.data.players.online}/${online.data.players.max}` : '-';
-      meta.innerHTML = `<strong>ONLINE</strong> · ${players} players`;
+      const players = online.data.players
+        ? `${online.data.players.online}/${online.data.players.max} Players`
+        : '- Players';
+      meta.innerHTML = `<strong>ONLINE</strong> · ${players}`;
       if(online.data.icon){
         iconEl.src = online.data.icon;
         iconEl.classList.add('show');
@@ -573,13 +603,17 @@
     } else {
       const anyResult = results.find(r => r && r.data);
       box.classList.add('offline'); box.classList.remove('online');
-      ipEl.textContent = SERVER_IPS[0];
-      meta.innerHTML = anyResult ? `<strong>OFFLINE</strong>` : 'status unavailable';
+      ipEl.textContent = MC_SERVER_IP;
+      meta.innerHTML = anyResult
+        ? `<strong>OFFLINE</strong>`
+        : `<strong>OFFLINE</strong> · Unable to fetch status`;
       iconEl.classList.remove('show');
     }
   }
+
+  // First check happens immediately on page load, then every 30 seconds
   checkServerStatus();
-  setInterval(checkServerStatus, 30000);
+  setInterval(checkServerStatus, MC_REFRESH_MS);
 </script>
 
 </body>
